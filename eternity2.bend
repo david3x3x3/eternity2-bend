@@ -44,11 +44,14 @@ def tailn(list, n):
     
 # filter a list of two element lists. produce a new list with the
 # second values where the first value matches n in the original list
-def filt(list, n):
+def filt(list, up, left):
   fold list:
     case List/Cons:
-      if lindex(list.head, 0) == n:
-        return List/Cons(lindex(list.head, 1), list.tail)
+      if lindex(lindex(list.head, 2), 0) == up:
+        if lindex(lindex(list.head, 2), 3) == left:
+          return List/Cons(list.head, list.tail)
+        else:
+          return list.tail
       else:
         return list.tail
     case List/Nil:
@@ -68,24 +71,13 @@ def rot(range, piece_num, piece):
 def rot4(list, num):
   return rot([0, 1, 2, 3], num, list)
   
-# rotate all pieces in a list into all 4 rotations.  each element in
-# the new list will look like [piece_num, rotations, [edge, edge,
-# edge, edge]]
+# rotate all pieces in a list into all 4 rotations.
+# each element in the new list will look like [piece_num, rotations, [edge, edge, edge, edge]]
 def rot_all(list):
   i = 1
   fold list with i:
     case List/Cons:
       return join(rot4(list.head, i), list.tail(i+1))
-    case List/Nil:
-      return List/Nil
-
-# find the value of the top and left edges of each piece and prepend
-# it to each piece in a list
-def calc(list, max_edge):
-  fold list:
-    case List/Cons:
-      data = lindex(list.head, 2)
-      return List/Cons([lindex(data, 0)*(max_edge+1) + lindex(data, 3), list.head], list.tail)
     case List/Nil:
       return List/Nil
 
@@ -110,13 +102,15 @@ def reverse(list):
 def jot(n):
   return reverse(jotr(n))
 
-# take a list of numbered items and put them in a list with each
-# number in separate slot
-def build_table(num_size, p):
+# take a list of numbered items and put them in a list with each number in separate slot
+def build_table(num_size, up, p, step):
   nums = jot(num_size)
   fold nums:
     case List/Cons:
-      return List/Cons(filt(p, nums.head), nums.tail)
+      if step == 0:
+        return List/Cons(build_table(num_size, nums.head, p, 1), nums.tail)
+      else:
+        return List/Cons(filt(p, up, nums.head), nums.tail)
     case List/Nil:
       return List/Nil
 
@@ -170,20 +164,18 @@ def llength(list):
     case List/Nil:
       return 0
 
-# take a list of pieces that are known to fit with the pieces above
-# and to the left.  perform remaining checks to see if they are valid
-# and continue the search.
-def search2(possible, pieces, table, max_edge, width, depth):
+# take a list of pieces that are known to fit with the pieces above and to the left.
+# perform remaining checks to see if they are valid and continue the search.
+def search2(possible, pieces, table, width, depth):
   fold possible:
     case List/Cons:
-      piece = possible.head
       # check for dups
-      if dup_check(pieces, lindex(piece, 0)) == 0:
-        # check for edge not at right
-        if (depth % width == width - 1) == (lindex(lindex(piece, 2), 1) == 0):
-          # check for edge not at bottom
-          if (depth / width == width - 1) == (lindex(lindex(piece, 2), 2) == 0):
-            res = search(width, List/Cons(piece, pieces), table, max_edge, depth + 1)
+      if dup_check(pieces, lindex(possible.head, 0)) == 0:
+        # check for edge not at bottom
+        if (depth / width == width - 1) == (lindex(lindex(possible.head, 2), 2) == 0):
+          # check for edge not at right
+          if (depth % width == width - 1) == (lindex(lindex(possible.head, 2), 1) == 0):
+            res = search(width, List/Cons(possible.head, pieces), table, depth + 1)
             match res:
               case List/Cons:
                 return List/Cons(res, possible.tail)
@@ -214,9 +206,8 @@ def summary(list):
     case List/Nil:
       return List/Nil
 
-# find out which entry in our lookup table has pieces that match the
-# upper and left edge
-def search(width, start, table, max_edge, depth):
+# find out which entry in our lookup table has pieces that match the upper and left edge
+def search(width, start, table, depth):
   match start:
     case List/Cons:
       if depth == width * width:
@@ -224,14 +215,13 @@ def search(width, start, table, max_edge, depth):
       else:
         up = lindex(lindex(lindex(start, width - 1), 2), 2)
         left = lindex(lindex(lindex(start, 0), 2), 1)
-        possible = lindex(table, up * (max_edge + 1) + left)
-        return flatten(search2(possible, start, table, max_edge, width, depth))
+        possible = lindex(lindex(table, up), left)
+        return flatten(search2(possible, start, table, width, depth))
     case List/nil:
       return List/Nil
 
 # build a row of blank pieces at the start so that our first row can
 # match edges against something
-
 def build_start(width):
   range = jot(width)
   fold range:
@@ -254,7 +244,7 @@ def main():
   width = sqrt(llength(pieces))
   max_edge = maxl(maxll(pieces))
   rot_pieces = rot_all(pieces)
-  table_size = (max_edge+1)*(max_edge+1)
-  table = build_table(table_size, calc(rot_pieces, max_edge))
-  start = List/Cons(lindex(lindex(table, 0), 0), build_start(width))
-  return search(width, start, table, max_edge, 1)
+  table_size = max_edge+1
+  table = build_table(table_size, -1, rot_pieces, 0)
+  start = List/Cons(lindex(lindex(lindex(table, 0), 0), 0), build_start(width))
+  return search(width, start, table, 1)
